@@ -6,15 +6,13 @@ import scala.util.Random
 
 trait IoBenchmarkFunctions {
 
-  def outsideWorldEitherIo(threshold: Double, baseTokens: Int, timeFactor: Int)(
-      input: Data): IO[Either[UhOh, Output]] = IO {
+  def outsideWorldEitherIo(threshold: Double, baseTokens: Int, timeFactor: Int)(input: Data): IO[Either[UhOh, Output]] = IO {
     Blackhole.consumeCPU(timeFactor * baseTokens)
     if (Random.nextDouble() > threshold) Right(Output(input.i))
     else Left(UhOh(Random.nextString(10)))
   }
 
-  def outsideWorldIo(threshold: Double, baseTokens: Int, timeFactor: Int)(
-      input: Data): IO[Output] =
+  def outsideWorldIo(threshold: Double, baseTokens: Int, timeFactor: Int)(input: Data): IO[Output] =
     IO {
       Blackhole.consumeCPU(timeFactor * baseTokens)
       if (Random.nextDouble() > threshold) Output(input.i)
@@ -32,8 +30,7 @@ trait IoBenchmarkFunctions {
       ()
     }
 
-  def doIoWithOutput(baseTokens: Int, timeFactor: Int)(
-      output: Output): IO[Result] = IO {
+  def doIoWithOutput(baseTokens: Int, timeFactor: Int)(output: Output): IO[Result] = IO {
     Blackhole.consumeCPU(timeFactor * baseTokens)
     Result(output.i)
   }

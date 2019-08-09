@@ -29,19 +29,16 @@ object EffectBenchmark extends CatsInstances with AllInstances {
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @Warmup(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 30, time = 5, timeUnit = TimeUnit.SECONDS)
-class EffectBenchmark
-    extends BenchmarkFunctions
-    with IoBenchmarkFunctions
-    with ZioBenchmarkFunctions {
+class EffectBenchmark extends BenchmarkFunctions with IoBenchmarkFunctions with ZioBenchmarkFunctions {
   import EffectBenchmark._
 
   @noinline
-  private def eitherTF[F[_]: Monad: ContextShift](
-      benchmarkState: BenchmarkState)(
+  private def eitherTF[F[_]: Monad: ContextShift](benchmarkState: BenchmarkState)(
       fetch: ValidInput => F[Data],
       outsideWorld: Data => F[Either[UhOh, Output]],
       onFailure: UhOh => F[Unit],
-      onOutput: Output => F[Result]) = {
+      onOutput: Output => F[Result]
+  ) = {
     val baseTokens            = benchmarkState.baseTimeTokens
     val validInvalidThreshold = benchmarkState.validInvalidThreshold
 
@@ -61,7 +58,9 @@ class EffectBenchmark
                 err => F.as(onFailure(err), err.asInstanceOf[ThisIsError]),
                 onOutput
               )
-              .value))
+              .value
+          )
+      )
       .value
   }
 
@@ -100,29 +99,31 @@ class EffectBenchmark
   }
 
   @noinline
-  private def feitherNoSyntax[F[_]: Monad: ContextShift](
-      benchmarkState: BenchmarkState)(
+  private def feitherNoSyntax[F[_]: Monad: ContextShift](benchmarkState: BenchmarkState)(
       fetch: ValidInput => F[Data],
       outsideWorld: Data => F[Either[UhOh, Output]],
       onFailure: UhOh => F[Unit],
-      onOutput: Output => F[Result]) = {
+      onOutput: Output => F[Result]
+  ) = {
     val baseTokens            = benchmarkState.baseTimeTokens
     val validInvalidThreshold = benchmarkState.validInvalidThreshold
 
     val F = Monad[F]
 
     F.flatMap(
-      F.map(F.pure(benchmarkState.getSampleInput))(input =>
-        validateEitherStyle(validInvalidThreshold)(input)
-          .map(transform(baseTokens)))) {
+      F.map(F.pure(benchmarkState.getSampleInput))(
+        input =>
+          validateEitherStyle(validInvalidThreshold)(input)
+            .map(transform(baseTokens))
+      )
+    ) {
       case Right(validInput) =>
-        F.productR(ContextShift[F].shift)(
-          F.flatMap(F.flatMap(fetch(validInput))(outsideWorld)) {
-            case Right(output) =>
-              F.map(onOutput(output))(Right(_): Either[ThisIsError, Result])
-            case l @ Left(err) =>
-              F.as(onFailure(err), l.asInstanceOf[Either[ThisIsError, Result]])
-          })
+        F.productR(ContextShift[F].shift)(F.flatMap(F.flatMap(fetch(validInput))(outsideWorld)) {
+          case Right(output) =>
+            F.map(onOutput(output))(Right(_): Either[ThisIsError, Result])
+          case l @ Left(err) =>
+            F.as(onFailure(err), l.asInstanceOf[Either[ThisIsError, Result]])
+        })
       case left => F.pure(left.asInstanceOf[Either[ThisIsError, Result]])
     }
   }
@@ -162,12 +163,12 @@ class EffectBenchmark
   }
 
   @noinline
-  private def feitherSyntax[F[_]: Monad: ContextShift](
-      benchmarkState: BenchmarkState)(
+  private def feitherSyntax[F[_]: Monad: ContextShift](benchmarkState: BenchmarkState)(
       fetch: ValidInput => F[Data],
       outsideWorld: Data => F[Either[UhOh, Output]],
       onFailure: UhOh => F[Unit],
-      onOutput: Output => F[Result]) = {
+      onOutput: Output => F[Result]
+  ) = {
     import cats.syntax.apply._
     import cats.syntax.flatMap._
     import cats.syntax.functor._
@@ -178,9 +179,7 @@ class EffectBenchmark
     val F = Monad[F]
 
     F.pure(benchmarkState.getSampleInput)
-      .map(input =>
-        validateEitherStyle(validInvalidThreshold)(input).map(
-          transform(baseTokens)))
+      .map(input => validateEitherStyle(validInvalidThreshold)(input).map(transform(baseTokens)))
       .flatMap {
         case Right(validInput) =>
           ContextShift[F].shift *> {

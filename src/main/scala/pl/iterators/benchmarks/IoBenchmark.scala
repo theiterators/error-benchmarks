@@ -33,18 +33,19 @@ class IoBenchmark extends BenchmarkFunctions with IoBenchmarkFunctions {
       .pure[IO, Invalid](benchmarkState.getSampleInput)
       .subflatMap(validateEitherStyle(validInvalidThreshold))
       .map(transform(baseTokens))
-      .flatMapF(input =>
-        shift {
-          EitherT
-            .right(fetchDataIo(baseTokens, timeFactor)(input))
-            .flatMapF(
-              outsideWorldEitherIo(failureThreshold, baseTokens, timeFactor))
-            .biSemiflatMap(
-              err => doIoWithFailure(baseTokens, timeFactor)(err).map(_ => err),
-              doIoWithOutput(baseTokens, timeFactor)
-            )
-            .value
-      })
+      .flatMapF(
+        input =>
+          shift {
+            EitherT
+              .right(fetchDataIo(baseTokens, timeFactor)(input))
+              .flatMapF(outsideWorldEitherIo(failureThreshold, baseTokens, timeFactor))
+              .biSemiflatMap(
+                err => doIoWithFailure(baseTokens, timeFactor)(err).map(_ => err),
+                doIoWithOutput(baseTokens, timeFactor)
+              )
+              .value
+          }
+      )
       .value
 
     io.unsafeRunSync()
@@ -60,21 +61,17 @@ class IoBenchmark extends BenchmarkFunctions with IoBenchmarkFunctions {
 
     val io = IO
       .pure(benchmarkState.getSampleInput)
-      .map(input =>
-        validateEitherStyle(validInvalidThreshold)(input).map(
-          transform(baseTokens)))
+      .map(input => validateEitherStyle(validInvalidThreshold)(input).map(transform(baseTokens)))
       .flatMap {
         case Right(validInput) =>
           shift {
             fetchDataIo(baseTokens, timeFactor)(validInput)
-              .flatMap(
-                outsideWorldEitherIo(failureThreshold, baseTokens, timeFactor))
+              .flatMap(outsideWorldEitherIo(failureThreshold, baseTokens, timeFactor))
               .flatMap {
                 case Right(output) =>
                   doIoWithOutput(baseTokens, timeFactor)(output).map(Right(_))
                 case l @ Left(err) =>
-                  doIoWithFailure(baseTokens, timeFactor)(err).map(_ =>
-                    l.asInstanceOf[Either[ThisIsError, Result]])
+                  doIoWithFailure(baseTokens, timeFactor)(err).map(_ => l.asInstanceOf[Either[ThisIsError, Result]])
               }
           }
         case left => IO.pure(left.asInstanceOf[Either[ThisIsError, Result]])
@@ -92,23 +89,23 @@ class IoBenchmark extends BenchmarkFunctions with IoBenchmarkFunctions {
     val validInvalidThreshold = benchmarkState.validInvalidThreshold
 
     val io = IO {
-      validateExceptionStyle(validInvalidThreshold)(
-        benchmarkState.getSampleInput)
+      validateExceptionStyle(validInvalidThreshold)(benchmarkState.getSampleInput)
     }.map(transform(baseTokens))
-      .flatMap(input =>
-        shift {
-          fetchDataIo(baseTokens, timeFactor)(input)
-            .flatMap(outsideWorldIo(failureThreshold, baseTokens, timeFactor))
-            .redeemWith(
-              {
-                case err: UhOhException =>
-                  doIoWithFailure(baseTokens, timeFactor)(err.uhOh).flatMap(_ =>
-                    IO.raiseError(err))
-                case otherThrowable => IO.raiseError(otherThrowable)
-              },
-              doIoWithOutput(baseTokens, timeFactor)
-            )
-      })
+      .flatMap(
+        input =>
+          shift {
+            fetchDataIo(baseTokens, timeFactor)(input)
+              .flatMap(outsideWorldIo(failureThreshold, baseTokens, timeFactor))
+              .redeemWith(
+                {
+                  case err: UhOhException =>
+                    doIoWithFailure(baseTokens, timeFactor)(err.uhOh).flatMap(_ => IO.raiseError(err))
+                  case otherThrowable => IO.raiseError(otherThrowable)
+                },
+                doIoWithOutput(baseTokens, timeFactor)
+              )
+          }
+      )
 
     io.attempt.unsafeRunSync()
   }

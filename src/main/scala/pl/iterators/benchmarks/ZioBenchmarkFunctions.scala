@@ -6,31 +6,25 @@ import scala.util.Random
 
 trait ZioBenchmarkFunctions {
 
-  def outsideWorldEitherZio(
-      threshold: Double,
-      baseTokens: Int,
-      timeFactor: Int)(input: Data): UIO[Either[UhOh, Output]] = UIO {
+  def outsideWorldEitherZio(threshold: Double, baseTokens: Int, timeFactor: Int)(input: Data): UIO[Either[UhOh, Output]] = UIO {
     Blackhole.consumeCPU(timeFactor * baseTokens)
     if (Random.nextDouble() > threshold) Right(Output(input.i))
     else Left(UhOh(Random.nextString(10)))
   }
 
-  def outsideWorldZio(threshold: Double, baseTokens: Int, timeFactor: Int)(
-      input: Data): Task[Output] =
+  def outsideWorldZio(threshold: Double, baseTokens: Int, timeFactor: Int)(input: Data): Task[Output] =
     Task {
       Blackhole.consumeCPU(timeFactor * baseTokens)
       if (Random.nextDouble() > threshold) Output(input.i)
       else throw UhOhException(UhOh(Random.nextString(10)))
     }
 
-  def doZioWithFailure(baseTokens: Int, timeFactor: Int)(
-      error: UhOh): UIO[Unit] = UIO {
+  def doZioWithFailure(baseTokens: Int, timeFactor: Int)(error: UhOh): UIO[Unit] = UIO {
     Blackhole.consumeCPU(timeFactor * baseTokens)
     ()
   }
 
-  def doZioWithOutput(baseTokens: Int, timeFactor: Int)(
-      output: Output): UIO[Result] = UIO {
+  def doZioWithOutput(baseTokens: Int, timeFactor: Int)(output: Output): UIO[Result] = UIO {
     Blackhole.consumeCPU(timeFactor * baseTokens)
     Result(output.i)
   }

@@ -20,9 +20,8 @@ object ZioBenchmark extends CatsInstances {
   def run[R1 >: runtime.Environment, A1](zio: ZIO[R1, _, A1]): A1 =
     runtime.unsafeRun(zio)
 
-  def runCause[R1 >: runtime.Environment, E1, A1](
-      zio: ZIO[R1, E1, A1]): Exit[E1, A1]     = runtime.unsafeRunSync(zio)
-  def block[R1, E1, A1](zio: ZIO[R1, E1, A1]) = blocking(zio)
+  def runCause[R1 >: runtime.Environment, E1, A1](zio: ZIO[R1, E1, A1]): Exit[E1, A1] = runtime.unsafeRunSync(zio)
+  def block[R1, E1, A1](zio: ZIO[R1, E1, A1])                                         = blocking(zio)
 }
 
 @BenchmarkMode(Array(Mode.AverageTime))
@@ -49,15 +48,14 @@ class ZioBenchmark extends BenchmarkFunctions with ZioBenchmarkFunctions {
           block(
             EitherT
               .right(fetchDataZio(baseTokens, timeFactor)(input))
-              .flatMapF(
-                outsideWorldEitherZio(failureThreshold, baseTokens, timeFactor))
+              .flatMapF(outsideWorldEitherZio(failureThreshold, baseTokens, timeFactor))
               .biSemiflatMap(
-                err =>
-                  doZioWithFailure(baseTokens, timeFactor)(err).andThen(
-                    ZIO.succeed(err)),
+                err => doZioWithFailure(baseTokens, timeFactor)(err).andThen(ZIO.succeed(err)),
                 doZioWithOutput(baseTokens, timeFactor)
               )
-              .value))
+              .value
+          )
+      )
       .value
 
     run(zio)
@@ -73,21 +71,17 @@ class ZioBenchmark extends BenchmarkFunctions with ZioBenchmarkFunctions {
 
     val zio = ZIO
       .succeed(benchmarkState.getSampleInput)
-      .map(input =>
-        validateEitherStyle(validInvalidThreshold)(input).map(
-          transform(baseTokens)))
+      .map(input => validateEitherStyle(validInvalidThreshold)(input).map(transform(baseTokens)))
       .flatMap {
         case Right(validInput) =>
           block {
             fetchDataZio(baseTokens, timeFactor)(validInput)
-              .flatMap(
-                outsideWorldEitherZio(failureThreshold, baseTokens, timeFactor))
+              .flatMap(outsideWorldEitherZio(failureThreshold, baseTokens, timeFactor))
               .flatMap {
                 case Right(output) =>
                   doZioWithOutput(baseTokens, timeFactor)(output).map(Right(_))
                 case l @ Left(err) =>
-                  doZioWithFailure(baseTokens, timeFactor)(err).andThen(
-                    ZIO.succeed(l.asInstanceOf[Either[ThisIsError, Result]]))
+                  doZioWithFailure(baseTokens, timeFactor)(err).andThen(ZIO.succeed(l.asInstanceOf[Either[ThisIsError, Result]]))
               }
           }
         case left => ZIO.succeed(left.asInstanceOf[Either[ThisIsError, Result]])
@@ -105,21 +99,23 @@ class ZioBenchmark extends BenchmarkFunctions with ZioBenchmarkFunctions {
     val validInvalidThreshold = benchmarkState.validInvalidThreshold
 
     val zio = ZIO {
-      validateExceptionStyle(validInvalidThreshold)(
-        benchmarkState.getSampleInput)
+      validateExceptionStyle(validInvalidThreshold)(benchmarkState.getSampleInput)
     }.map(transform(baseTokens))
-      .flatMap(input =>
-        block {
-          fetchDataZio(baseTokens, timeFactor)(input)
-            .flatMap(data =>
-              outsideWorldZio(failureThreshold, baseTokens, timeFactor)(data)
-                .catchSome {
-                  case err: UhOhException =>
-                    doZioWithFailure(baseTokens, timeFactor)(err.uhOh).andThen(
-                      ZIO.fail(err))
-              })
-            .flatMap(doZioWithOutput(baseTokens, timeFactor))
-      })
+      .flatMap(
+        input =>
+          block {
+            fetchDataZio(baseTokens, timeFactor)(input)
+              .flatMap(
+                data =>
+                  outsideWorldZio(failureThreshold, baseTokens, timeFactor)(data)
+                    .catchSome {
+                      case err: UhOhException =>
+                        doZioWithFailure(baseTokens, timeFactor)(err.uhOh).andThen(ZIO.fail(err))
+                    }
+              )
+              .flatMap(doZioWithOutput(baseTokens, timeFactor))
+          }
+      )
 
     runCause(zio)
   }
@@ -134,21 +130,20 @@ class ZioBenchmark extends BenchmarkFunctions with ZioBenchmarkFunctions {
 
     val zio = ZIO
       .succeed(benchmarkState.getSampleInput)
-      .map(input =>
-        validateEitherStyle(validInvalidThreshold)(input).map(
-          transform(baseTokens)))
+      .map(input => validateEitherStyle(validInvalidThreshold)(input).map(transform(baseTokens)))
       .absolve
-      .flatMap(validInput =>
-        block {
-          fetchDataZio(baseTokens, timeFactor)(validInput)
-            .flatMap(
-              data =>
-                outsideWorldEitherZio(failureThreshold, baseTokens, timeFactor)(
-                  data).absolve.catchAll(err =>
-                  doZioWithFailure(baseTokens, timeFactor)(err).andThen(
-                    ZIO.fail(err))))
-            .flatMap(doZioWithOutput(baseTokens, timeFactor))
-      })
+      .flatMap(
+        validInput =>
+          block {
+            fetchDataZio(baseTokens, timeFactor)(validInput)
+              .flatMap(
+                data =>
+                  outsideWorldEitherZio(failureThreshold, baseTokens, timeFactor)(data).absolve
+                    .catchAll(err => doZioWithFailure(baseTokens, timeFactor)(err).andThen(ZIO.fail(err)))
+              )
+              .flatMap(doZioWithOutput(baseTokens, timeFactor))
+          }
+      )
 
     runCause(zio)
   }

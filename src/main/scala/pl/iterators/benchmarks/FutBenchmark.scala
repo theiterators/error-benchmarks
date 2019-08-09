@@ -62,21 +62,17 @@ class FutBenchmark extends BenchmarkFunctions {
 
     val fut = Future
       .successful(benchmarkState.getSampleInput)
-      .map(input =>
-        validateEitherStyle(validInvalidThreshold)(input).map(
-          transform(baseTokens)))
+      .map(input => validateEitherStyle(validInvalidThreshold)(input).map(transform(baseTokens)))
       .flatMap {
         case Right(data) =>
           fetchData(baseTokens, timeFactor)(data)
-            .flatMap(
-              outsideWorldEither(failureThreshold, baseTokens, timeFactor))
+            .flatMap(outsideWorldEither(failureThreshold, baseTokens, timeFactor))
             .flatMap {
               case Right(output) =>
                 doSomethingWithOutput(baseTokens, timeFactor)(output)
                   .map(Right(_))
               case l @ Left(err) =>
-                doSomethingWithFailure(baseTokens, timeFactor)(err).map(_ =>
-                  l.asInstanceOf[Either[ThisIsError, Result]])
+                doSomethingWithFailure(baseTokens, timeFactor)(err).map(_ => l.asInstanceOf[Either[ThisIsError, Result]])
             }
         case left =>
           Future.successful(left.asInstanceOf[Either[ThisIsError, Result]])
@@ -94,17 +90,17 @@ class FutBenchmark extends BenchmarkFunctions {
     val validInvalidThreshold = benchmarkState.validInvalidThreshold
 
     val fut = Future {
-      validateExceptionStyle(validInvalidThreshold)(
-        benchmarkState.getSampleInput)
+      validateExceptionStyle(validInvalidThreshold)(benchmarkState.getSampleInput)
     }.map(transform(baseTokens))
       .flatMap(fetchData(baseTokens, timeFactor))
-      .flatMap(data =>
-        outsideWorldException(failureThreshold, baseTokens, timeFactor)(data)
-          .recoverWith {
-            case err: UhOhException =>
-              doSomethingWithFailure(baseTokens, timeFactor)(err.uhOh).flatMap(
-                _ => Future.failed(err))
-        })
+      .flatMap(
+        data =>
+          outsideWorldException(failureThreshold, baseTokens, timeFactor)(data)
+            .recoverWith {
+              case err: UhOhException =>
+                doSomethingWithFailure(baseTokens, timeFactor)(err.uhOh).flatMap(_ => Future.failed(err))
+            }
+      )
       .flatMap(doSomethingWithOutput(baseTokens, timeFactor))
 
     await(fut, blackhole)
